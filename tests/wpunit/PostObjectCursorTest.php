@@ -1837,4 +1837,74 @@ class PostObjectCursorTest extends \Tests\WPGraphQL\TestCase\WPGraphQLTestCase {
 			wp_delete_post( $created_post, true );
 		}
 	}
+
+	/**
+	 * @see: https://github.com/wp-graphql/wp-graphql/pull/3063
+	 * @return void
+	 */
+	public function testWpTermQueryCursorPaginationSupport() {
+
+		$category = self::factory()->term->create( [ 'taxonomy' => 'category' ] );
+		$child_category = self::factory()->term->create( [ 'taxonomy' => 'category', 'parent' => $category ] );
+
+		$actual_orderby = null;
+
+		// hook into the posts_orderby filter after WPGraphQL hooks in
+		add_filter( 'posts_orderby', function( $orderby, $query ) use ( &$actual_orderby ) {
+			$actual_orderby = $orderby;
+			return $orderby;
+		} , 99, 2 );
+
+		$query = '
+		query terms ($parent: Int) {
+		  categories(where: {
+		    parent: $parent
+		  }) {
+		    nodes {
+		      __typename
+		      databaseId
+		    }
+		  }
+		}
+		';
+
+		$actual = $this->graphql([
+			'query' => $query,
+			'variables' => [
+				'parent' => $category
+			]
+		]);
+
+//		This is a note of what the "$orderby" looked like in v1.22.0 before
+//      this fix: https://github.com/wp-graphql/wp-graphql/pull/3063
+//
+//		$prev_pieces = [
+//			'fields' => 't.term_id',
+//			'join' => 'INNER JOIN wp_term_taxonomy AS tt ON t.term_id = tt.term_id',
+//			'where' => '',
+//			'distinct' => null,
+//			'order_by' => 'ORDER BY FIELD( t.term_id, 29 )',
+//			'order' => 'ASC',
+//			'limits' => null,
+//		];
+
+		codecept_debug( [
+			'$actual' => $actual,
+			'$actual_orderby' => $actual_orderby,
+		]);
+
+		self::assertQuerySuccessful( $actual, [
+			$this->expectedNode(
+				'categories.nodes',
+				[
+					$this->expectedField( '__typename', 'Category' ),
+					$this->expectedField( 'databaseId', $child_category ),
+				],
+				0
+			),
+		] );
+
+		$this->assertNotEmpty( $actual_pieces['where'] );
+
+	}
 }
