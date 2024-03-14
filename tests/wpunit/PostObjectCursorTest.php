@@ -1856,13 +1856,15 @@ class PostObjectCursorTest extends \Tests\WPGraphQL\TestCase\WPGraphQLTestCase {
 		} , 99, 2 );
 
 		$query = '
-		query terms ($parent: Int) {
-		  categories(where: {
+		query pages($parent: Int) {
+		  pages(where: {
 		    parent: $parent
 		  }) {
 		    nodes {
-		      __typename
+		      title
 		      databaseId
+		      slug      
+		      parentDatabaseId
 		    }
 		  }
 		}
@@ -1875,18 +1877,10 @@ class PostObjectCursorTest extends \Tests\WPGraphQL\TestCase\WPGraphQLTestCase {
 			]
 		]);
 
+
 //		This is a note of what the "$orderby" looked like in v1.22.0 before
 //      this fix: https://github.com/wp-graphql/wp-graphql/pull/3063
-//
-//		$prev_pieces = [
-//			'fields' => 't.term_id',
-//			'join' => 'INNER JOIN wp_term_taxonomy AS tt ON t.term_id = tt.term_id',
-//			'where' => '',
-//			'distinct' => null,
-//			'order_by' => 'ORDER BY FIELD( t.term_id, 29 )',
-//			'order' => 'ASC',
-//			'limits' => null,
-//		];
+//		"orderby": "wp_posts.menu_order ASC, wp_posts.post_title ASC";
 
 		codecept_debug( [
 			'$actual' => $actual,
